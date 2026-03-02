@@ -12,7 +12,14 @@ interface Assignment {
     testId: string;
     deadline: string | null;
     assignedAt: string;
-    test: { id: string; title: string; description: string | null; durationMinutes: number | null };
+    test: {
+        id: string;
+        title: string;
+        description: string | null;
+        durationMinutes: number | null;
+        isActive: boolean;
+        _count: { questions: number };
+    };
 }
 
 interface Result {
@@ -31,43 +38,22 @@ export default function EmployeeTestsPage() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [aRes] = await Promise.all([
-                    fetch("/api/tests"),
-                ]);
-                const aData = await aRes.json();
-
-                // Parse assignments from test data for the current user
-                // Since employee API returns tests they have access to
-                const tests = aData.tests || [];
-                const assignmentsList: Assignment[] = [];
-                const resultsList: Result[] = [];
-
-                // Fetch individual assignments for this employee
-                // Using the test list as a proxy
-                for (const test of tests) {
-                    if (test.assignments) {
-                        for (const a of test.assignments) {
-                            assignmentsList.push({ ...a, test: { id: test.id, title: test.title, description: test.description, durationMinutes: test.durationMinutes } });
-                        }
-                    }
-                    if (test.results) {
-                        for (const r of test.results) {
-                            resultsList.push({ ...r, test: { title: test.title } });
-                        }
-                    }
-                }
-
-                setAssignments(assignmentsList);
-                setResults(resultsList);
-            } catch (err) { console.error(err); }
-            finally { setLoading(false); }
+                const res = await fetch("/api/tests");
+                const data = await res.json();
+                setAssignments(data.assignments || []);
+                setResults(data.results || []);
+            } catch (err) {
+                console.error(err);
+            } finally {
+                setLoading(false);
+            }
         };
         fetchData();
     }, []);
 
     const formatDate = (d: string) => new Date(d).toLocaleDateString("tr-TR");
     const completedTestIds = new Set(results.map((r) => r.testId));
-    const pendingAssignments = assignments.filter((a) => !completedTestIds.has(a.test.id));
+    const pendingAssignments = assignments.filter((a) => !completedTestIds.has(a.testId));
 
     return (
         <div className="space-y-6 animate-fade-in">
@@ -94,6 +80,9 @@ export default function EmployeeTestsPage() {
                                                 <h3 className="font-medium">{a.test.title}</h3>
                                                 {a.test.description && <p className="text-sm text-muted-foreground mt-1">{a.test.description}</p>}
                                                 <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                                                    <span className="flex items-center gap-1">
+                                                        <ClipboardCheck className="w-3 h-3" /> {a.test._count.questions} soru
+                                                    </span>
                                                     {a.test.durationMinutes && (
                                                         <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {a.test.durationMinutes} dk</span>
                                                     )}

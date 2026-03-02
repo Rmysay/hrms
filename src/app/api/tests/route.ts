@@ -8,6 +8,43 @@ export async function GET() {
         const session = await getSession();
         if (!session) return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 403 });
 
+        // For EMPLOYEE: return only tests assigned to them with assignment + result data
+        if (session.role === "EMPLOYEE") {
+            const assignments = await prisma.testAssignment.findMany({
+                where: { assignedToId: session.userId },
+                include: {
+                    test: {
+                        select: {
+                            id: true,
+                            title: true,
+                            description: true,
+                            durationMinutes: true,
+                            isActive: true,
+                            _count: { select: { questions: true } },
+                        },
+                    },
+                },
+                orderBy: { assignedAt: "desc" },
+            });
+
+            const results = await prisma.testResult.findMany({
+                where: { userId: session.userId },
+                select: {
+                    id: true,
+                    testId: true,
+                    totalScore: true,
+                    categoryScores: true,
+                    completedAt: true,
+                    durationSeconds: true,
+                    test: { select: { title: true } },
+                },
+                orderBy: { completedAt: "desc" },
+            });
+
+            return NextResponse.json({ assignments, results });
+        }
+
+        // For HR: return all tests with counts
         const tests = await prisma.test.findMany({
             where: { tenantId: session.tenantId },
             include: {
