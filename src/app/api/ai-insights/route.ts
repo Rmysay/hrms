@@ -29,7 +29,7 @@ export async function GET() {
             }),
             prisma.task.findMany({
                 where: { tenantId },
-                select: { id: true, title: true, status: true, priority: true, assignedToId: true, dueDate: true, assignedTo: { select: { id: true, name: true } } },
+                select: { id: true, title: true, status: true, priority: true, assignedToId: true, deadline: true, assignedTo: { select: { id: true, name: true } } },
             }),
             prisma.leaveRequest.findMany({
                 where: { tenantId },
@@ -37,7 +37,7 @@ export async function GET() {
             }),
             prisma.testResult.findMany({
                 where: { test: { tenantId } },
-                select: { id: true, userId: true, score: true, user: { select: { id: true, name: true } } },
+                select: { id: true, userId: true, totalScore: true, user: { select: { id: true, name: true } } },
             }),
             prisma.nineBoxEvaluation.findMany({
                 where: { tenantId },
@@ -52,7 +52,7 @@ export async function GET() {
         // === 1. OVERDUE TASK ANALYSIS ===
         const now = new Date();
         const overdueTasks = tasks.filter(
-            (t) => t.dueDate && new Date(t.dueDate) < now && t.status !== "COMPLETED" && t.status !== "CANCELLED"
+            (t) => t.deadline && new Date(t.deadline) < now && t.status !== "COMPLETED"
         );
         if (overdueTasks.length > 0) {
             const affected = [...new Map(overdueTasks.filter(t => t.assignedTo).map((t) => [t.assignedTo!.id, t.assignedTo!])).values()];
@@ -132,7 +132,7 @@ export async function GET() {
         }
 
         // === 5. LOW TEST SCORES ===
-        const lowScoreResults = testResults.filter((r) => r.score < 50);
+        const lowScoreResults = testResults.filter((r) => r.totalScore < 50);
         if (lowScoreResults.length > 0) {
             const affected = [...new Map(lowScoreResults.map((r) => [r.user.id, r.user])).values()];
             insights.push({
@@ -143,7 +143,7 @@ export async function GET() {
                 description: `Test sonuçları %50'nin altında kalan çalışanlar tespit edildi. Bu durum yetkinlik açığına işaret edebilir.`,
                 recommendation: "Düşük puan alan çalışanlar için kişisel gelişim planı oluşturun. Hedefli eğitim programları ve mentorluk desteği sağlayın.",
                 affectedEmployees: affected,
-                metric: `Ort. puan: ${Math.round(lowScoreResults.reduce((a, r) => a + r.score, 0) / lowScoreResults.length)}%`,
+                metric: `Ort. puan: ${Math.round(lowScoreResults.reduce((a, r) => a + r.totalScore, 0) / lowScoreResults.length)}%`,
             });
         }
 
